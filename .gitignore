@@ -1,0 +1,4 @@
+# idea files
+.idea/
+.env
+esp/data/local_conf.py
