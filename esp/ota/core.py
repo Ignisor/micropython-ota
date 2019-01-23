@@ -2,7 +2,7 @@ import uos
 import ujson
 import urequests
 
-from ota.utils import https_get_to_file, move_f, untar
+from ota.utils import move_f, download_file, ensure_dirs
 
 PROVIDERS = {
     'github': 'https://api.github.com/repos/{owner}/{repo}',
@@ -10,7 +10,9 @@ PROVIDERS = {
 
 
 class Firmware(object):
-    def __init__(self):
+    def __init__(self, verbose=2):
+        self.verbose = verbose
+
         self.version = self.__get_version()
         self.conf = self.__get_conf()
 
@@ -63,23 +65,30 @@ class Firmware(object):
         return self.version == self.remote_version()
 
     def __download_latest(self):
-        endpoint = '/legacy.tar.gz/master'
-
-        response = urequests.get(self.__base_url + endpoint)
-
-        with open('latest.tar.gz', 'wb') as target_file:
-            target_file.write(response.content)
-
-    @staticmethod
-    def __unpack_firmware(file='latest.tar.gz', dest='firmware'):
+        target = 'firmware'
         try:
-            uos.rmdir(dest)
+            uos.rmdir(target)
         except OSError:
             pass
 
-        uos.mkdir(dest)
+        uos.mkdir(target)
 
-        untar(file, dest)
+        self.__download_from_git(git_dir=self.conf.get('root_dir', '', target=target))
+
+    def __download_from_git(self, git_dir='', target_dir='firmware'):
+        endpoint = '/contents/' + git_dir
+
+        response = urequests.get(self.__base_url + endpoint)
+        paths_data = response.json()
+
+        for path in paths_data:
+            if path['download_url']:
+                if self.verbose > 1:
+                    print('Downloading {}...'.format(path['path']))
+                download_file(path['download_url'], '{}/{}'.format(target_dir, path['path']))
+            else:
+                ensure_dirs('{}/{}'.format(target_dir, path['path']))
+                self.__download_from_git(path['path'], target_dir=target_dir)
 
     @staticmethod
     def backup(dir_to_backup='firmware'):
@@ -104,23 +113,22 @@ class Firmware(object):
         uos.mkdir(dir_to_restore)
         move_f(target, dir_to_restore)
 
-    def update(self, force=False, verbose=2):
+    def update(self, force=False):
         if not force and self.has_latest_version():
-            if verbose > 0:
+            if self.verbose > 0:
                 print('Firmware already up to date (version: {})'.format(self.version))
 
             return False
 
         if self.version is not None:
-            if verbose > 1:
+            if self.verbose > 1:
                 print('Storing backup of current firmware version...')
             Firmware.backup()
 
-        if verbose > 1:
+        if self.verbose > 1:
             print('Downloading new firmware...')
         self.__download_latest()
 
-        if verbose > 1:
+        if self.verbose > 1:
             print('Unpacking new firmware...')
-        Firmware.__unpack_firmware()
-        uos.remove('latest.tar.gz')
+

@@ -1,6 +1,5 @@
 import uos
-
-from ota import utarfile
+import urequests
 
 
 def ensure_dirs(path):
@@ -29,23 +28,8 @@ def move_f(source, destination):
         move_f('{}/{}'.format(source, item), '{}/{}'.format(destination, item))
 
 
-def untar(file, destination):
-    t = utarfile.TarFile(file)
-    for i in t:
-        target = '{}/{}'.format(destination, i.name)
+def download_file(url, save_path):
+    response = urequests.get(url)
 
-        if i.type == utarfile.DIRTYPE:
-            ensure_dirs(target)
-        else:
-            src_file = t.extractfile(i)
-            dest_file = open(target, "wb")
-
-            while True:
-                buf = src_file.read(512)
-
-                if not buf:
-                    break
-                dest_file.write(buf)
-
-            dest_file.close()
-
+    with open(save_path, 'wb') as target_file:
+        target_file.write(response.content)

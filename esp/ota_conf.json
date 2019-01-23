@@ -3,7 +3,6 @@
     "provider": "GitHub",
     "owner": "Ignisor",
     "repo": "ESP-micro-relay-controller",
-    "branch": "master",
     "root_dir": "esp"
   }
 }
