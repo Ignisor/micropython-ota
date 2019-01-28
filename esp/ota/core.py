@@ -45,15 +45,21 @@ class Firmware(object):
 
         return base_url
 
-    def remote_version(self):
-        endpoint = '/commits/master'
-        headers = {
+    def __request_get(self, url, headers=None):
+        default_headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) '
                           'AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/50.0.2661.102 Safari/537.36',
-            'Accept': 'application/vnd.github.VERSION.sha',
         }
-        response = urequests.get(self.__base_url + endpoint, headers=headers)
+        if headers:
+            default_headers.update(headers)
+
+        return urequests.get(url, headers=default_headers)
+
+    def remote_version(self):
+        endpoint = '/commits/master'
+        headers = {'Accept': 'application/vnd.github.VERSION.sha'}
+        response = self.__request_get(self.__base_url + endpoint, headers=headers)
 
         if response.status_code != 200:
             raise ValueError('Error while getting version from server '
@@ -73,12 +79,12 @@ class Firmware(object):
 
         uos.mkdir(target)
 
-        self.__download_from_git(git_dir=self.conf.get('root_dir', '', target=target))
+        self.__download_from_git(git_dir=self.conf['remote'].get('root_dir', ''), target_dir=target)
 
     def __download_from_git(self, git_dir='', target_dir='firmware'):
         endpoint = '/contents/' + git_dir
 
-        response = urequests.get(self.__base_url + endpoint)
+        response = self.__request_get(self.__base_url + endpoint)
         paths_data = response.json()
 
         for path in paths_data:
